@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Provenance: AI content check and labelling</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap">
+<style>
+:root{--bg:#eef1ee;--surface:#fbfcfb;--ink:#17262b;--mute:#58686c;--line:#cdd6d3;--teal:#0f6b6b;--amber:#b87a12;--band:rgba(184,122,18,.28);--focus:#0f6b6b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#101a1d;--surface:#172429;--ink:#e6eeeb;--mute:#9fb0ae;--line:#2c3d42;--teal:#4cc2b8;--amber:#e3a43a;--band:rgba(227,164,58,.3);--focus:#4cc2b8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#101a1d;--surface:#172429;--ink:#e6eeeb;--mute:#9fb0ae;--line:#2c3d42;--teal:#4cc2b8;--amber:#e3a43a;--band:rgba(227,164,58,.3);--focus:#4cc2b8;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 "Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1040px;margin:0 auto;padding:28px 18px 56px}
+h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.05;margin:0 0 10px;font-weight:800;letter-spacing:-.02em;max-width:18ch}
+h2{font-size:1.15rem;margin:0 0 10px;font-weight:600}
+.lede{color:var(--mute);max-width:62ch;margin:0 0 26px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:780px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+textarea,input[type=text]{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px}
+textarea{min-height:260px;resize:vertical}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+button{font:inherit;font-weight:600;border:0;border-radius:6px;padding:10px 16px;background:var(--teal);color:var(--bg);cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap}
+.count{color:var(--mute);font-size:.9rem}
+.verdict{font-size:1.5rem;font-weight:800;margin:0 0 4px}
+.gauge{position:relative;height:46px;margin:16px 0 4px;border-radius:6px;background:linear-gradient(90deg,var(--line),transparent 50%,var(--line));border:1px solid var(--line)}
+.band{position:absolute;top:0;bottom:0;background:var(--band);border-left:2px solid var(--amber);border-right:2px solid var(--amber)}
+.mark{position:absolute;top:-6px;bottom:-6px;width:4px;margin-left:-2px;background:var(--ink);border-radius:2px}
+.ends{display:flex;justify-content:space-between;color:var(--mute);font-size:.85rem}
+.sig{display:grid;grid-template-columns:1fr 90px;gap:4px 12px;padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
+.sig small{grid-column:1/-1;color:var(--mute)}
+.meter{height:8px;border-radius:4px;background:var(--line);align-self:center;overflow:hidden}
+.meter i{display:block;height:100%;background:var(--amber)}
+.note{border-left:3px solid var(--amber);padding:6px 12px;margin:14px 0 0;color:var(--mute);font-size:.92rem}
+fieldset{border:0;padding:0;margin:0 0 12px}
+legend{font-weight:600;margin-bottom:6px}
+label.opt{display:block;padding:8px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px;cursor:pointer}
+label.opt:has(input:checked){border-color:var(--teal);background:var(--bg)}
+label.opt span{display:block;color:var(--mute);font-size:.88rem}
+pre{white-space:pre-wrap;word-break:break-word;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:12px;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;margin:8px 0}
+.label-out{font-weight:600;font-size:1.05rem;padding:12px;border:2px solid var(--teal);border-radius:8px}
+footer{margin-top:22px;color:var(--mute);font-size:.88rem;max-width:70ch}
+</style>
+</head>
+<body>
+<main>
+<h1>Check text. Label it honestly.</h1>
+<p class="lede">Paste some writing to see which stylistic patterns often appear in AI-generated text. Then create a clear disclosure label for your own content. Everything runs in your browser; nothing is uploaded.</p>
+
+<div class="grid">
+<section class="panel" aria-labelledby="h-check">
+<h2 id="h-check">1. Check a text</h2>
+<textarea id="txt" placeholder="Paste at least 50 words…" aria-label="Text to check"></textarea>
+<div class="row"><span class="count" id="count">0 words</span><span><button class="alt" id="clear" type="button">Clear</button> <button id="go" type="button">Analyse text</button></span></div>
+<div id="result" aria-live="polite"></div>
+</section>
+
+<section class="panel" aria-labelledby="h-label">
+<h2 id="h-label">2. Label your content</h2>
+<fieldset><legend>How was it made?</legend>
+<label class="opt"><input type="radio" name="lvl" value="human" checked> Human-written<span>I wrote it without AI tools.</span></label>
+<label class="opt"><input type="radio" name="lvl" value="assisted"> AI-assisted<span>AI helped with ideas, grammar or edits; I wrote the text.</span></label>
+<label class="opt"><input type="radio" name="lvl" value="drafted"> AI-drafted, human-edited<span>AI wrote a first draft that I changed substantially.</span></label>
+<label class="opt"><input type="radio" name="lvl" value="generated"> AI-generated<span>Mostly or fully produced by AI.</span></label>
+</fieldset>
+<label for="tool" style="font-weight:600">Tool used (optional)</label>
+<input type="text" id="tool" placeholder="e.g. Claude">
+<label style="display:block;margin:10px 0"><input type="checkbox" id="rev" checked> A person reviewed this for accuracy</label>
+<button id="mk" type="button">Create label</button>
+<div id="labelOut"></div>
+</section>
+</div>
+
+<footer>Detection is probabilistic. No tool, this one included, can prove who or what wrote a text, and these signals also appear in human writing, especially from non-native English writers and formal styles. Do not use this score to accuse anyone. Self-disclosure with a label is the more reliable and fairer practice.</footer>
+</main>
+
+<script>
+(function(){
+var $=function(id){return document.getElementById(id)};
+var clamp=function(x,a,b){return Math.max(a,Math.min(b,x))};
+var STOCK=["delve","tapestry","testament","multifaceted","landscape","navigate the","in conclusion","it is important to note","it’s important to note","it is worth noting","moreover","furthermore","additionally","in today’s","ever-evolving","rich tapestry","plays a crucial role","a myriad of","underscores","fosters","holistic","leverage","seamless","unlock","embark","realm of","pivotal","in summary","overall,","it’s worth noting","not only","but also"];
+function wc(t){return (t.match(/[A-Za-z’']+/g)||[]).length}
+function analyse(t){
+ var low=t.toLowerCase().replace(/'/g,"’");
+ var words=low.match(/[a-z’]+/g)||[];
+ var n=words.length;
+ var sents=t.split(/(?<=[.!?])\s+/).filter(function(s){return wc(s)>0});
+ var lens=sents.map(wc);
+ var mean=lens.reduce(function(a,b){return a+b},0)/Math.max(1,lens.length);
+ var sd=Math.sqrt(lens.reduce(function(a,b){return a+Math.pow(b-mean,2)},0)/Math.max(1,lens.length));
+ var cv=mean?sd/mean:0;
+ var burst=clamp((0.55-cv)/0.35,0,1);
+ var hits=0,found=[];
+ STOCK.forEach(function(p){var i=0,c=0;while((i=low.indexOf(p,i))>-1){c++;i+=p.length}if(c){hits+=c;found.push(p)}});
+ var stock=clamp(hits/n*100/1.2,0,1);
+ var tri={},rep=0,tot=Math.max(1,n-2);
+ for(var i=0;i<n-2;i++){var k=words[i]+" "+words[i+1]+" "+words[i+2];tri[k]=(tri[k]||0)+1}
+ Object.keys(tri).forEach(function(k){if(tri[k]>1)rep+=tri[k]-1});
+ var repS=clamp(rep/tot/0.06,0,1);
+ var dashes=(t.match(/—/g)||[]).length;
+ var dashS=clamp(dashes/Math.max(1,sents.length)/0.3,0,1);
+ var cues=(low.match(/\b(i|my|me|i’m|i’ve|we|our)\b/g)||[]).length+(low.match(/[a-z]’(t|s|re|ve|ll|d|m)\b/g)||[]).length+(t.match(/[?!]/g)||[]).length;
+ var human=clamp(cues/n*100/6,0,1);
+ var score=100*(0.28*burst+0.27*stock+0.12*repS+0.08*dashS+0.25*(1-human));
+ var half=clamp(40-n/25,18,38);
+ return {n:n,score:score,half:half,sig:[
+  {name:"Sentence-length variety",v:burst,d:"Variation "+cv.toFixed(2)+". Very even sentence lengths lean AI-like."},
+  {name:"Stock phrases",v:stock,d:hits?("Found: "+found.slice(0,6).join(", ")):"No common AI stock phrases found."},
+  {name:"Repeated phrasing",v:repS,d:rep+" repeated three-word sequences."},
+  {name:"Em dash use",v:dashS,d:dashes+" em dashes in "+sents.length+" sentences."},
+  {name:"Personal voice",v:1-human,d:"Contractions, first person and questions suggest a human voice. Higher bar = fewer cues."}
+ ]};
+}
+function render(r){
+ var lo=clamp(r.score-r.half,0,100),hi=clamp(r.score+r.half,0,100);
+ var v=hi<45?"Leans human-written":(lo>55?"Leans AI-like":"Inconclusive");
+ var h='<h2 style="margin-top:20px">Result</h2><p class="verdict">'+v+'</p>';
+ h+='<div class="count">Estimated AI-likeness '+Math.round(lo)+' to '+Math.round(hi)+' out of 100 ('+r.n+' words)</div>';
+ h+='<div class="gauge" role="img" aria-label="Score '+Math.round(r.score)+', plausible range '+Math.round(lo)+' to '+Math.round(hi)+'"><div class="band" style="left:'+lo+'%;width:'+(hi-lo)+'%"></div><div class="mark" style="left:'+r.score+'%"></div></div>';
+ h+='<div class="ends"><span>Human-like</span><span>AI-like</span></div>';
+ h+='<p class="note">The shaded band is the plausible range. Shorter texts give wider bands. A wide band means the check cannot tell.</p>';
+ r.sig.forEach(function(s){h+='<div class="sig"><span>'+s.name+'</span><span class="meter"><i style="width:'+Math.round(s.v*100)+'%"></i></span><small>'+s.d+'</small></div>'});
+ $("result").innerHTML=h;
+}
+$("txt").addEventListener("input",function(){$("count").textContent=wc(this.value)+" words"});
+$("go").onclick=function(){
+ var t=$("txt").value;
+ if(wc(t)<50){$("result").innerHTML='<p class="note">Paste at least 50 words. Shorter text does not give a usable signal.</p>';return}
+ render(analyse(t));
+};
+$("clear").onclick=function(){$("txt").value="";$("count").textContent="0 words";$("result").innerHTML=""};
+var LV={human:["Human-written","Written by a person without AI tools."],assisted:["AI-assisted","Written by a person with AI help for ideas, grammar or editing."],drafted:["AI-drafted, human-edited","First draft produced by AI and substantially edited by a person."],generated:["AI-generated","Produced mostly or fully by AI."]};
+$("mk").onclick=function(){
+ var k=document.querySelector('input[name=lvl]:checked').value,tool=$("tool").value.trim(),rev=$("rev").checked;
+ var txt=LV[k][0]+". "+LV[k][1]+(tool&&k!=="human"?" Tool: "+tool+".":"")+(rev?" Reviewed by a person for accuracy.":" Not reviewed by a person.");
+ var js=JSON.stringify({content_origin:k,tool:(k==="human"?null:(tool||null)),human_reviewed:rev,labelled_on:new Date().toISOString().slice(0,10)},null,2);
+ $("labelOut").innerHTML='<p class="label-out" id="lt"></p><pre id="lj"></pre><button class="alt" id="cp" type="button">Copy label</button>';
+ $("lt").textContent=txt;$("lj").textContent=js;
+ $("cp").onclick=function(){try{navigator.clipboard.writeText(txt+"\n\n"+js).then(function(){$("cp").textContent="Copied"},function(){$("cp").textContent="Copy failed"})}catch(e){$("cp").textContent="Copy failed"}};
+};
+})();
+</script>
+</body>
+</html>
